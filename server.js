@@ -1,14 +1,28 @@
 'use strict';
 
-var express     = require('express');
-var bodyParser  = require('body-parser');
-var cors        = require('cors');
+const express     = require('express');
+const bodyParser  = require('body-parser');
+const cors        = require('cors');
+const helmet            = require('helmet');
 
-var apiRoutes         = require('./routes/api.js');
-var fccTestingRoutes  = require('./routes/fcctesting.js');
-var runner            = require('./test-runner');
+const apiRoutes         = require('./routes/api.js');
+const fccTestingRoutes  = require('./routes/fcctesting.js');
+const runner            = require('./test-runner');
 
-var app = express();
+const app = express();
+
+const mongoose = require('mongoose');
+// Mongoose options to resolve deprecation warnings
+const dbConfig = { 
+  useNewUrlParser: true,
+  useFindAndModify: false,
+  useCreateIndex: true,
+  useUnifiedTopology: true
+}
+
+// Helmet security measures
+app.use(helmet.hidePoweredBy({ setTo: 'PHP 4.2.0' }));
+app.use(helmet.noCache()); // disable client-side caching
 
 app.use('/public', express.static(process.cwd() + '/public'));
 
@@ -36,21 +50,31 @@ app.use(function(req, res, next) {
     .send('Not Found');
 });
 
-//Start our server and tests!
-app.listen(process.env.PORT || 3000, function () {
-  console.log("Listening on port " + process.env.PORT);
-  if(process.env.NODE_ENV==='test') {
-    console.log('Running Tests...');
-    setTimeout(function () {
-      try {
-        runner.run();
-      } catch(e) {
-        var error = e;
-          console.log('Tests are not valid:');
-          console.log(error);
+
+mongoose
+  .connect(process.env.DB, dbConfig)
+  .then((result) => {
+    console.log("Database connected");
+    //Start our server and tests!
+    app.listen(process.env.PORT || 3000, function () {
+      console.log("Listening on port " + process.env.PORT);
+      if(process.env.NODE_ENV==='test') {
+        console.log('Running Tests...');
+        setTimeout(function () {
+          try {
+            runner.run();
+          } catch(e) {
+            var error = e;
+              console.log('Tests are not valid:');
+              console.log(error);
+          }
+        }, 1500);
       }
-    }, 1500);
-  }
-});
+    });  
+  })
+  .catch(err => {
+    console.log("There was an error connecting to the database");
+    console.log(err)
+  });
 
 module.exports = app; //for unit/functional testing

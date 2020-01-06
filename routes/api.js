@@ -8,14 +8,45 @@
 
 'use strict';
 
-var expect = require('chai').expect;
-var MongoClient = require('mongodb').MongoClient;
-var ObjectId = require('mongodb').ObjectId;
-const MONGODB_CONNECTION_STRING = process.env.DB;
-//Example connection: MongoClient.connect(MONGODB_CONNECTION_STRING, function(err, db) {});
+const expect = require('chai').expect;
+const mongoose = require('mongoose');
+
+// set up mongoDB schema
+const bookSchema = new mongoose.Schema({
+  title: String,
+  comments: [ String ]
+}, { toJSON: { virtuals: true } });
+bookSchema.virtual('commentcount').get(function() {
+  return this.comments.length;
+});
+const Book = mongoose.model('Book', bookSchema);
 
 module.exports = function (app) {
 
+  app.route('/api/books')
+    .post(async (req, res) => {
+      const title = req.body.title;
+      console.log("New book '" + title + "' received");
+      const newBook = new Book({title, comments: []});
+      
+      try {
+        const result = await newBook.save();
+        console.log("New book saved successfully");
+        console.log("Comment count: " + result.commentcount);
+        res.json(result);
+      } catch (err) {
+        console.log(err);
+      }
+    })
+    .get(async (req, res) => {
+      try {
+        const books = await Book.find({}, {__v: 0 });
+        res.json(books);
+      } catch(err) {
+        console.log(err);
+      }
+    });
+  /*
   app.route('/api/books')
     .get(function (req, res){
       //response will be array of book objects
@@ -30,7 +61,7 @@ module.exports = function (app) {
     .delete(function(req, res){
       //if successful response will be 'complete delete successful'
     });
-
+  */
 
 
   app.route('/api/books/:id')
