@@ -12,10 +12,14 @@ const expect = require('chai').expect;
 const mongoose = require('mongoose');
 
 // set up mongoDB schema
+const omitPrivate = (doc, obj) => {
+  delete obj.__v;
+  return obj;
+}
 const bookSchema = new mongoose.Schema({
   title: String,
   comments: [ String ]
-}, { toJSON: { virtuals: true } });
+}, { toJSON: { virtuals: true, transform: omitPrivate }, id: false });
 bookSchema.virtual('commentcount').get(function() {
   return this.comments.length;
 });
@@ -36,16 +40,33 @@ module.exports = function (app) {
         res.json(result);
       } catch (err) {
         console.log(err);
+        res.send("error adding new book");
       }
     })
     .get(async (req, res) => {
       try {
-        const books = await Book.find({}, {__v: 0 });
+        const books = await Book.find({});
         res.json(books);
       } catch(err) {
         console.log(err);
+        res.send("error retrieving books");
+      }
+    })
+    .delete(async (req, res) => {
+      try {
+        const results = await Book.deleteMany({});
+        console.log(results);
+        if(results) {
+          res.send("complete delete successful");
+        } else {
+          res.send("no books deleted");
+        }
+      } catch (err) {
+        console.log(err);
+        res.send("error deleting books");
       }
     });
+
   /*
   app.route('/api/books')
     .get(function (req, res){
@@ -63,7 +84,55 @@ module.exports = function (app) {
     });
   */
 
-
+  app.route('/api/books/:id')
+    .get(async (req, res) => {
+      const _id = req.params.id;
+      try {
+        const book = await Book.findById(_id)
+        if(book) {
+          res.json(book);
+        } else {
+          res.send("no book exists");
+        }
+      } catch(err) {
+        console.log(err);
+        res.send("error finding book");
+      }
+    })
+    .post(async (req, res) => {
+      console.log(req.body);
+      const _id = req.params.id;
+      const comment = req.body.comment;
+      
+      try {
+        const bookToUpdate = await Book.findById(_id);
+        console.log("before update", bookToUpdate);
+        bookToUpdate.comments.push(comment);
+        await bookToUpdate.save();
+        console.log("after update", bookToUpdate);
+        res.json(bookToUpdate);
+      } catch(err) {
+        console.log(err);
+        res.send("error adding comment");
+      }  
+    })
+    .delete(async (req, res) => {
+      const _id = req.params.id;
+      try {
+        const removedBook = await Book.findByIdAndDelete(_id);
+        console.log("Book removed: ", removedBook);
+        if (removedBook) {
+          res.send("delete successful");
+        } else {
+          res.send("book not found");
+        }
+      } catch (err) {
+        console.log(err);
+        res.send("error deleting book");
+      }
+    });
+  
+/*
   app.route('/api/books/:id')
     .get(function (req, res){
       var bookid = req.params.id;
@@ -80,5 +149,6 @@ module.exports = function (app) {
       var bookid = req.params.id;
       //if successful response will be 'delete successful'
     });
-  
+
+*/  
 };
