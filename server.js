@@ -51,8 +51,7 @@ app.use(function(req, res, next) {
 });
 
 
-mongoose
-  .connect(process.env.DB, dbConfig)
+mongoose.connect(process.env.DB, dbConfig)
   .then((result) => {
     console.log("Database connected");
     //Start our server and tests!
